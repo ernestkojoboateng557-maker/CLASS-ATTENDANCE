@@ -1,1 +1,557 @@
-FOR CLASS ATTENDANCE
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Networking Class Attendance Tracker</title>
+    <style>
+        :root {
+            --primary-color: #2563eb;
+            --secondary-color: #1e40af;
+            --success-color: #16a34a;
+            --danger-color: #dc2626;
+            --background: #f8fafc;
+            --surface: #ffffff;
+            --text: #1e293b;
+            --border: #cbd5e1;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+
+        body {
+            background-color: var(--background);
+            color: var(--text);
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        .container {
+            width: 100%;
+            max-width: 550px;
+            background: var(--surface);
+            padding: 30px;
+            border-radius: 12px;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+            margin-bottom: 20px;
+            position: relative;
+        }
+
+        h2, h3 {
+            margin-bottom: 20px;
+            text-align: center;
+            color: var(--secondary-color);
+        }
+
+        .form-group {
+            margin-bottom: 18px;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 6px;
+            font-weight: 600;
+            font-size: 0.9rem;
+        }
+
+        input, select {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            font-size: 1rem;
+            outline: none;
+            transition: border-color 0.2s;
+        }
+
+        input:focus, select:focus {
+            border-color: var(--primary-color);
+        }
+
+        button {
+            width: 100%;
+            padding: 12px;
+            border: none;
+            border-radius: 6px;
+            font-size: 1rem;
+            font-weight: bold;
+            cursor: pointer;
+            transition: background-color 0.2s;
+        }
+
+        .btn-submit {
+            background-color: var(--primary-color);
+            color: white;
+        }
+
+        .btn-submit:hover {
+            background-color: var(--secondary-color);
+        }
+
+        .btn-admin {
+            background-color: #64748b;
+            color: white;
+            margin-top: 10px;
+        }
+
+        .btn-clear {
+            background-color: var(--danger-color);
+            color: white;
+            margin-top: 15px;
+        }
+
+        /* Lockout Overlay Screen Styles */
+        .lockout-screen {
+            display: none;
+            text-align: center;
+            padding: 20px 10px;
+        }
+
+        .lockout-badge {
+            background-color: #dcfce7;
+            color: #15803d;
+            width: 60px;
+            height: 60px;
+            border-radius: 50%;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 2rem;
+            margin-bottom: 15px;
+        }
+
+        .lockout-details {
+            background: #f8fafc;
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 15px;
+            margin: 20px 0;
+            text-align: left;
+            font-size: 0.95rem;
+        }
+
+        .lockout-details div {
+            margin-bottom: 8px;
+        }
+
+        .btn-unlock {
+            background-color: #475569;
+            color: white;
+            margin-top: 10px;
+        }
+
+        .admin-section {
+            display: none;
+            width: 100%;
+            max-width: 800px;
+            background: var(--surface);
+            padding: 30px;
+            border-radius: 12px;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+            margin-top: 20px;
+        }
+
+        .admin-config {
+            background: #f1f5f9;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            border: 1px dashed var(--border);
+        }
+
+        .table-responsive {
+            overflow-x: auto;
+            margin-top: 15px;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            text-align: left;
+            font-size: 0.9rem;
+        }
+
+        th, td {
+            padding: 10px;
+            border-bottom: 1px solid var(--border);
+        }
+
+        th {
+            background-color: #f1f5f9;
+            color: var(--secondary-color);
+        }
+
+        .status-badge {
+            background-color: #dcfce7;
+            color: #15803d;
+            padding: 2px 8px;
+            border-radius: 12px;
+            font-size: 0.8rem;
+            font-weight: bold;
+        }
+
+        .alert {
+            padding: 12px;
+            border-radius: 6px;
+            margin-bottom: 15px;
+            text-align: center;
+            font-weight: 600;
+            display: none;
+        }
+        .alert-error { background-color: #fee2e2; color: #991b1b; border: 1px solid #fca5a5; }
+    </style>
+</head>
+<body>
+
+    <!-- Main Card Container -->
+    <div class="container">
+        <!-- Attendance Entry Form View -->
+        <div id="formView">
+            <h2>Class Attendance Form</h2>
+            <div id="statusAlert" class="alert alert-error"></div>
+            
+            <form id="attendanceForm">
+                <div class="form-group">
+                    <label for="studentName">Student Full Name</label>
+                    <input type="text" id="studentName" placeholder="Enter your name" required>
+                </div>
+
+                <div class="form-group">
+                    <label for="studentIndex">Index / ID Number</label>
+                    <input type="text" id="studentIndex" placeholder="Enter ID number" required>
+                </div>
+
+                <div class="form-group">
+                    <label for="courseSelect">Select Course</label>
+                    <select id="courseSelect" required>
+                        <option value="" disabled selected>-- Choose Course --</option>
+                        <option value="Algebra & Calculus">Algebra & Calculus</option>
+                        <option value="Computer Hardware">Computer Hardware</option>
+                        <option value="Information Technology Essentials">Information Technology Essentials</option>
+                        <option value="Principle of Business Management">Principle of Business Management</option>
+                        <option value="Programming with Visual Basic .NET">Programming with Visual Basic .NET</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label for="dateSelect">Select Attendance Week & Day</label>
+                    <select id="dateSelect" required>
+                        <option value="" disabled selected>-- Choose Session/Date --</option>
+                        <!-- Generated dynamically via JS -->
+                    </select>
+                </div>
+
+                <button type="submit" class="btn-submit">Submit Presence</button>
+            </form>
+        </div>
+
+        <!-- Safe Lockout Confirmation Screen View -->
+        <div id="lockoutView" class="lockout-screen">
+            <div class="lockout-badge">✓</div>
+            <h2>Attendance Logged Successfully!</h2>
+            <p style="color: #64748b;">Your entry has been securely saved to the Course Rep database.</p>
+            
+            <div class="lockout-details">
+                <div><strong>Student Name:</strong> <span id="lblLoggedName"></span></div>
+                <div><strong>Index/ID Number:</strong> <span id="lblLoggedIndex"></span></div>
+                <div><strong>Course:</strong> <span id="lblLoggedCourse"></span></div>
+                <div><strong>Schedule:</strong> <span id="lblLoggedSchedule"></span></div>
+            </div>
+
+            <p style="font-size: 0.85rem; color: #dc2626; font-weight: bold; margin-bottom: 10px;">
+                🔒 This device is locked to prevent unauthorized duplicate entries.
+            </p>
+            <button id="unlockFormBtn" class="btn-unlock">Course Rep: Unlock for Next Student</button>
+        </div>
+
+        <button id="toggleAdminBtn" class="btn-admin">Access Admin Panel (Course Rep Only)</button>
+    </div>
+
+    <!-- Admin Panel Dashboard -->
+    <div id="adminPanel" class="admin-section">
+        <h3>Course Rep Admin Dashboard</h3>
+        
+        <!-- Semester Configuration Controls -->
+        <div class="admin-config">
+            <label style="margin-bottom: 8px; color: var(--secondary-color);"><strong>Semester Start Date:</strong></label>
+            <div style="display: flex; gap: 10px;">
+                <input type="date" id="semesterStartDate" style="max-width: 250px;">
+                <button id="updateCalendarBtn" style="width: auto; background: var(--primary-color); color: white; padding: 0 15px;">Override Date</button>
+            </div>
+            <small style="color: #64748b; display: block; margin-top: 5px;">Default set hardcoded to June 9. Use field above only to override if school calendar changes.</small>
+        </div>
+        
+        <div class="table-responsive">
+            <table id="attendanceTable">
+                <thead>
+                    <tr>
+                        <th>Submission Timestamp</th>
+                        <th>Academic Schedule</th>
+                        <th>Calendar Date</th>
+                        <th>Name</th>
+                        <th>ID Number</th>
+                        <th>Course</th>
+                        <th>Status</th>
+                    </tr>
+                </thead>
+                <tbody id="attendanceRecords">
+                    <!-- Records load dynamically -->
+                </tbody>
+            </table>
+        </div>
+
+        <button id="clearDataBtn" class="btn-clear">Clear All Records</button>
+    </div>
+
+    <script>
+        // CONFIGURATION
+        const ADMIN_PIN = "NET777"; // Your secret Admin PIN
+        const HARDCODED_START_DATE = "2026-06-09"; // Automatically defaults to June 9, 2026
+        
+        let isAdminAuthenticated = false;
+        const weekdays = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"];
+
+        // UI Target Elements
+        const formView = document.getElementById('formView');
+        const lockoutView = document.getElementById('lockoutView');
+        const attendanceForm = document.getElementById('attendanceForm');
+        const statusAlert = document.getElementById('statusAlert');
+        const toggleAdminBtn = document.getElementById('toggleAdminBtn');
+        const adminPanel = document.getElementById('adminPanel');
+        const attendanceRecords = document.getElementById('attendanceRecords');
+        const clearDataBtn = document.getElementById('clearDataBtn');
+        const dateSelect = document.getElementById('dateSelect');
+        const semesterStartDateInput = document.getElementById('semesterStartDate');
+        const updateCalendarBtn = document.getElementById('updateCalendarBtn');
+        const unlockFormBtn = document.getElementById('unlockFormBtn');
+
+        // Lockout Labels
+        const lblLoggedName = document.getElementById('lblLoggedName');
+        const lblLoggedIndex = document.getElementById('lblLoggedIndex');
+        const lblLoggedCourse = document.getElementById('lblLoggedCourse');
+        const lblLoggedSchedule = document.getElementById('lblLoggedSchedule');
+
+        // Step 1: Initialize Calendar Dates engine
+        function generateSemesterDates() {
+            let activeStartDate = localStorage.getItem('semester_start_date') || HARDCODED_START_DATE;
+            localStorage.setItem('semester_start_date', activeStartDate);
+            
+            semesterStartDateInput.value = activeStartDate;
+            dateSelect.innerHTML = '<option value="" disabled selected>-- Choose Session/Date --</option>';
+            
+            let baseDate = new Date(activeStartDate);
+            let startDayOfWeek = baseDate.getDay(); 
+
+            for (let w = 1; w <= 19; w++) {
+                for (let d = 0; d < 5; d++) {
+                    let currentDayDate = new Date(baseDate);
+                    let targetDayOfWeek = d + 1; 
+                    let dayOffset = targetDayOfWeek - startDayOfWeek;
+                    let totalDaysOffset = ((w - 1) * 7) + dayOffset;
+                    
+                    currentDayDate.setDate(baseDate.getDate() + totalDaysOffset);
+                    
+                    const dateFormatted = currentDayDate.toLocaleDateString('en-US', {
+                        weekday: 'short',
+                        year: 'numeric',
+                        month: 'short',
+                        day: 'numeric'
+                    });
+
+                    const optionValue = `Week ${w} - ${weekdays[d]} (${dateFormatted})`;
+                    const optionElement = document.createElement('option');
+                    optionElement.value = optionValue;
+                    optionElement.dataset.schedule = `Week ${w}, ${weekdays[d]}`;
+                    optionElement.dataset.caldate = dateFormatted;
+                    optionElement.textContent = optionValue;
+                    dateSelect.appendChild(optionElement);
+                }
+            }
+        }
+
+        updateCalendarBtn.addEventListener('click', function() {
+            if(semesterStartDateInput.value) {
+                localStorage.setItem('semester_start_date', semesterStartDateInput.value);
+                generateSemesterDates();
+                alert("Academic Calendar successfully updated.");
+            }
+        });
+
+        // Step 2: Manage Lockout State on startup
+        function checkDeviceLockoutStatus() {
+            const currentLock = JSON.parse(localStorage.getItem('device_attendance_lock'));
+            
+            if (currentLock) {
+                // If a lock exists, verify if it belongs to the same active session
+                // If it's a completely new day or course session, bypass lock
+                lblLoggedName.textContent = currentLock.name;
+                lblLoggedIndex.textContent = currentLock.indexNo;
+                lblLoggedCourse.textContent = currentLock.course;
+                lblLoggedSchedule.textContent = currentLock.schedule;
+                
+                formView.style.display = "none";
+                lockoutView.style.display = "block";
+            } else {
+                formView.style.display = "block";
+                lockoutView.style.display = "none";
+            }
+        }
+
+        // Step 3: Attendance Submissions Pipeline
+        attendanceForm.addEventListener('submit', function(e) {
+            e.preventDefault();
+
+            const name = document.getElementById('studentName').value.trim();
+            const indexNo = document.getElementById('studentIndex').value.trim().toUpperCase();
+            const course = document.getElementById('courseSelect').value;
+            
+            const selectedOption = dateSelect.options[dateSelect.selectedIndex];
+            const scheduleInfo = selectedOption.dataset.schedule; 
+            const calendarDateInfo = selectedOption.dataset.caldate;
+            
+            let attendanceLog = JSON.parse(localStorage.getItem('net_class_attendance')) || [];
+
+            // Duplicate cross-check validation
+            const isDuplicate = attendanceLog.some(record => 
+                record.indexNo === indexNo && 
+                record.schedule === scheduleInfo &&
+                record.course === course
+            );
+
+            if (isDuplicate) {
+                statusAlert.textContent = `Submission Rejected! ID "${indexNo}" has already signed in for ${scheduleInfo} in ${course}.`;
+                statusAlert.style.display = "block";
+                return;
+            }
+            
+            statusAlert.style.display = "none";
+            const now = new Date();
+            const timestamp = now.toLocaleDateString() + ' ' + now.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
+
+            const newRecord = {
+                timestamp: timestamp,
+                schedule: scheduleInfo,
+                calendarDate: calendarDateInfo,
+                name: name,
+                indexNo: indexNo,
+                course: course,
+                status: "Present"
+            };
+
+            attendanceLog.push(newRecord);
+            localStorage.setItem('net_class_attendance', JSON.stringify(attendanceLog));
+
+            // Set Device Lock metadata to freeze the UI
+            localStorage.setItem('device_attendance_lock', JSON.stringify({
+                name: name,
+                indexNo: indexNo,
+                course: course,
+                schedule: selectedOption.value
+            }));
+
+            // Reset operational data and update view
+            attendanceForm.reset();
+            checkDeviceLockoutStatus();
+
+            if (isAdminAuthenticated) {
+                loadAttendanceRecords();
+            }
+        });
+
+        // Manual Admin Bypass/Unlock Action
+        unlockFormBtn.addEventListener('click', function() {
+            const enteredPin = prompt("Enter Course Rep Secret Admin PIN to unlock form:");
+            if (enteredPin === ADMIN_PIN) {
+                localStorage.removeItem('device_attendance_lock');
+                checkDeviceLockoutStatus();
+            } else if (enteredPin !== null) {
+                alert("Incorrect PIN. Access Denied.");
+            }
+        });
+
+        // Automatically unlock device if current selections change
+        // Track input fields for Course/Date adjustments to auto-release if the class transitions
+        document.getElementById('courseSelect').addEventListener('change', autoReleaseLockOnSessionChange);
+        dateSelect.addEventListener('change', autoReleaseLockOnSessionChange);
+
+        function autoReleaseLockOnSessionChange() {
+            const currentLock = JSON.parse(localStorage.getItem('device_attendance_lock'));
+            if (currentLock) {
+                const currentCourseSelection = document.getElementById('courseSelect').value;
+                const currentDaySelection = dateSelect.value;
+                
+                // If a completely different lesson window or day option is chosen, clear the local block
+                if (currentCourseSelection !== currentLock.course || currentDaySelection !== currentLock.schedule) {
+                    localStorage.removeItem('device_attendance_lock');
+                    checkDeviceLockoutStatus();
+                }
+            }
+        }
+
+        // Step 4: Admin Panel Display System
+        toggleAdminBtn.addEventListener('click', function() {
+            if (!isAdminAuthenticated) {
+                const enteredPin = prompt("Enter Course Rep Secret Admin PIN:");
+                if (enteredPin === ADMIN_PIN) {
+                    isAdminAuthenticated = true;
+                    adminPanel.style.display = "block";
+                    toggleAdminBtn.textContent = "Hide Admin Dashboard";
+                    toggleAdminBtn.style.backgroundColor = "#475569";
+                    loadAttendanceRecords();
+                } else if (enteredPin !== null) {
+                    alert("Access Denied: Incorrect credentials.");
+                }
+            } else {
+                isAdminAuthenticated = false;
+                adminPanel.style.display = "none";
+                toggleAdminBtn.textContent = "Access Admin Panel (Course Rep Only)";
+                toggleAdminBtn.style.backgroundColor = "#64748b";
+            }
+        });
+
+        function loadAttendanceRecords() {
+            attendanceRecords.innerHTML = "";
+            let attendanceLog = JSON.parse(localStorage.getItem('net_class_attendance')) || [];
+
+            if (attendanceLog.length === 0) {
+                attendanceRecords.innerHTML = `<tr><td colspan="7" style="text-align:center; color:#94a3b8;">No data logged in system yet.</td></tr>`;
+                return;
+            }
+
+            attendanceLog.slice().reverse().forEach(record => {
+                const row = document.createElement('tr');
+                row.innerHTML = `
+                    <td><small style="color:#64748b">${record.timestamp}</small></td>
+                    <td><strong>${record.schedule}</strong></td>
+                    <td>${record.calendarDate}</td>
+                    <td><strong>${record.name}</strong></td>
+                    <td>${record.indexNo}</td>
+                    <td>${record.course}</td>
+                    <td><span class="status-badge">${record.status}</span></td>
+                `;
+                attendanceRecords.appendChild(row);
+            });
+        }
+
+        clearDataBtn.addEventListener('click', function() {
+            if (confirm("Reset operational history? Data cannot be restored.")) {
+                localStorage.removeItem('net_class_attendance');
+                localStorage.removeItem('device_attendance_lock');
+                loadAttendanceRecords();
+                checkDeviceLockoutStatus();
+                alert("System logs cleared.");
+            }
+        });
+
+        // Run startup procedures
+        generateSemesterDates();
+        checkDeviceLockoutStatus();
+    </script>
+</body>
+</html>
