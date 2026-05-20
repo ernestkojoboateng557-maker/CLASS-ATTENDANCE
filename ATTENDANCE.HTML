@@ -3,8 +3,11 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Networking Class Attendance Tracker</title>
+    <title>KTU Networking Attendance System</title>
     <style>
+        /* ==========================================
+           1. DESIGN SYSTEM & VARIABLE DECLARATIONS
+           ========================================== */
         :root {
             --primary-color: #2563eb;
             --secondary-color: #1e40af;
@@ -106,7 +109,7 @@
             margin-top: 15px;
         }
 
-        /* Lockout Overlay Screen Styles */
+        /* Lockout Screen Styles */
         .lockout-screen {
             display: none;
             text-align: center;
@@ -209,9 +212,12 @@
 </head>
 <body>
 
-    <!-- Main Card Container -->
+    <!-- ==========================================
+       2. INTERFACE VIEWS LAYER (HTML)
+       ========================================== -->
     <div class="container">
-        <!-- Attendance Entry Form View -->
+        
+        <!-- View A: Standard Student Submission Form -->
         <div id="formView">
             <h2>Class Attendance Form</h2>
             <div id="statusAlert" class="alert alert-error"></div>
@@ -243,7 +249,6 @@
                     <label for="dateSelect">Select Attendance Week & Day</label>
                     <select id="dateSelect" required>
                         <option value="" disabled selected>-- Choose Session/Date --</option>
-                        <!-- Generated dynamically via JS -->
                     </select>
                 </div>
 
@@ -251,7 +256,7 @@
             </form>
         </div>
 
-        <!-- Safe Lockout Confirmation Screen View -->
+        <!-- View B: Device Lockout Overlay Confirmation Screen -->
         <div id="lockoutView" class="lockout-screen">
             <div class="lockout-badge">✓</div>
             <h2>Attendance Logged Successfully!</h2>
@@ -273,18 +278,17 @@
         <button id="toggleAdminBtn" class="btn-admin">Access Admin Panel (Course Rep Only)</button>
     </div>
 
-    <!-- Admin Panel Dashboard -->
+    <!-- View C: Course Rep Administration Backend Dashboard -->
     <div id="adminPanel" class="admin-section">
         <h3>Course Rep Admin Dashboard</h3>
         
-        <!-- Semester Configuration Controls -->
         <div class="admin-config">
-            <label style="margin-bottom: 8px; color: var(--secondary-color);"><strong>Semester Start Date:</strong></label>
+            <label style="margin-bottom: 8px; color: var(--secondary-color);"><strong>Semester Start Date Offset:</strong></label>
             <div style="display: flex; gap: 10px;">
                 <input type="date" id="semesterStartDate" style="max-width: 250px;">
                 <button id="updateCalendarBtn" style="width: auto; background: var(--primary-color); color: white; padding: 0 15px;">Override Date</button>
             </div>
-            <small style="color: #64748b; display: block; margin-top: 5px;">Default set hardcoded to June 9. Use field above only to override if school calendar changes.</small>
+            <small style="color: #64748b; display: block; margin-top: 5px;">Default initialization point automatically set to June 9, 2026.</small>
         </div>
         
         <div class="table-responsive">
@@ -300,258 +304,264 @@
                         <th>Status</th>
                     </tr>
                 </thead>
-                <tbody id="attendanceRecords">
-                    <!-- Records load dynamically -->
-                </tbody>
+                <tbody id="attendanceRecords"></tbody>
             </table>
         </div>
 
         <button id="clearDataBtn" class="btn-clear">Clear All Records</button>
     </div>
 
+    <!-- ==========================================
+       3. LOGIC & DATA HANDLING LAYER (JAVASCRIPT)
+       ========================================== -->
     <script>
-        // CONFIGURATION
-        const ADMIN_PIN = "NET777"; // Your secret Admin PIN
-        const HARDCODED_START_DATE = "2026-06-09"; // Automatically defaults to June 9, 2026
-        
-        let isAdminAuthenticated = false;
-        const weekdays = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"];
+        (function () {
+            'use strict';
 
-        // UI Target Elements
-        const formView = document.getElementById('formView');
-        const lockoutView = document.getElementById('lockoutView');
-        const attendanceForm = document.getElementById('attendanceForm');
-        const statusAlert = document.getElementById('statusAlert');
-        const toggleAdminBtn = document.getElementById('toggleAdminBtn');
-        const adminPanel = document.getElementById('adminPanel');
-        const attendanceRecords = document.getElementById('attendanceRecords');
-        const clearDataBtn = document.getElementById('clearDataBtn');
-        const dateSelect = document.getElementById('dateSelect');
-        const semesterStartDateInput = document.getElementById('semesterStartDate');
-        const updateCalendarBtn = document.getElementById('updateCalendarBtn');
-        const unlockFormBtn = document.getElementById('unlockFormBtn');
+            // ==========================================
+            // CHANGE YOUR PASSWORD DIRECTLY HERE
+            // ==========================================
+            const MASTER_ADMIN_PIN = "NET777"; 
 
-        // Lockout Labels
-        const lblLoggedName = document.getElementById('lblLoggedName');
-        const lblLoggedIndex = document.getElementById('lblLoggedIndex');
-        const lblLoggedCourse = document.getElementById('lblLoggedCourse');
-        const lblLoggedSchedule = document.getElementById('lblLoggedSchedule');
-
-        // Step 1: Initialize Calendar Dates engine
-        function generateSemesterDates() {
-            let activeStartDate = localStorage.getItem('semester_start_date') || HARDCODED_START_DATE;
-            localStorage.setItem('semester_start_date', activeStartDate);
-            
-            semesterStartDateInput.value = activeStartDate;
-            dateSelect.innerHTML = '<option value="" disabled selected>-- Choose Session/Date --</option>';
-            
-            let baseDate = new Date(activeStartDate);
-            let startDayOfWeek = baseDate.getDay(); 
-
-            for (let w = 1; w <= 19; w++) {
-                for (let d = 0; d < 5; d++) {
-                    let currentDayDate = new Date(baseDate);
-                    let targetDayOfWeek = d + 1; 
-                    let dayOffset = targetDayOfWeek - startDayOfWeek;
-                    let totalDaysOffset = ((w - 1) * 7) + dayOffset;
-                    
-                    currentDayDate.setDate(baseDate.getDate() + totalDaysOffset);
-                    
-                    const dateFormatted = currentDayDate.toLocaleDateString('en-US', {
-                        weekday: 'short',
-                        year: 'numeric',
-                        month: 'short',
-                        day: 'numeric'
-                    });
-
-                    const optionValue = `Week ${w} - ${weekdays[d]} (${dateFormatted})`;
-                    const optionElement = document.createElement('option');
-                    optionElement.value = optionValue;
-                    optionElement.dataset.schedule = `Week ${w}, ${weekdays[d]}`;
-                    optionElement.dataset.caldate = dateFormatted;
-                    optionElement.textContent = optionValue;
-                    dateSelect.appendChild(optionElement);
-                }
+            function authenticatePin(inputString) {
+                return inputString === MASTER_ADMIN_PIN;
             }
-        }
 
-        updateCalendarBtn.addEventListener('click', function() {
-            if(semesterStartDateInput.value) {
-                localStorage.setItem('semester_start_date', semesterStartDateInput.value);
-                generateSemesterDates();
-                alert("Academic Calendar successfully updated.");
-            }
-        });
+            const DEFAULT_ANCHOR_DATE = "2026-06-09"; 
+            let isUserAuthenticated = false;
+            const matrixWeekdays = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"];
 
-        // Step 2: Manage Lockout State on startup
-        function checkDeviceLockoutStatus() {
-            const currentLock = JSON.parse(localStorage.getItem('device_attendance_lock'));
-            
-            if (currentLock) {
-                // If a lock exists, verify if it belongs to the same active session
-                // If it's a completely new day or course session, bypass lock
-                lblLoggedName.textContent = currentLock.name;
-                lblLoggedIndex.textContent = currentLock.indexNo;
-                lblLoggedCourse.textContent = currentLock.course;
-                lblLoggedSchedule.textContent = currentLock.schedule;
+            // DOM Binding Definitions
+            const uiFormContainer = document.getElementById('formView');
+            const uiLockoutContainer = document.getElementById('lockoutView');
+            const targetForm = document.getElementById('attendanceForm');
+            const uiStatusAlert = document.getElementById('statusAlert');
+            const uiToggleAdminBtn = document.getElementById('toggleAdminBtn');
+            const uiAdminPanel = document.getElementById('adminPanel');
+            const uiAttendanceRecords = document.getElementById('attendanceRecords');
+            const uiClearDataBtn = document.getElementById('clearDataBtn');
+            const uiDateSelect = document.getElementById('dateSelect');
+            const uiSemesterStartDate = document.getElementById('semesterStartDate');
+            const uiUpdateCalendarBtn = document.getElementById('updateCalendarBtn');
+            const uiUnlockFormBtn = document.getElementById('unlockFormBtn');
+
+            // Metadata Value Bindings
+            const outName = document.getElementById('lblLoggedName');
+            const outIndex = document.getElementById('lblLoggedIndex');
+            const outCourse = document.getElementById('lblLoggedCourse');
+            const outSchedule = document.getElementById('lblLoggedSchedule');
+
+            // Calendar Range Engine
+            function buildCalendarMatrix() {
+                let currentSavedRoot = localStorage.getItem('semester_start_date') || DEFAULT_ANCHOR_DATE;
+                localStorage.setItem('semester_start_date', currentSavedRoot);
                 
-                formView.style.display = "none";
-                lockoutView.style.display = "block";
-            } else {
-                formView.style.display = "block";
-                lockoutView.style.display = "none";
-            }
-        }
-
-        // Step 3: Attendance Submissions Pipeline
-        attendanceForm.addEventListener('submit', function(e) {
-            e.preventDefault();
-
-            const name = document.getElementById('studentName').value.trim();
-            const indexNo = document.getElementById('studentIndex').value.trim().toUpperCase();
-            const course = document.getElementById('courseSelect').value;
-            
-            const selectedOption = dateSelect.options[dateSelect.selectedIndex];
-            const scheduleInfo = selectedOption.dataset.schedule; 
-            const calendarDateInfo = selectedOption.dataset.caldate;
-            
-            let attendanceLog = JSON.parse(localStorage.getItem('net_class_attendance')) || [];
-
-            // Duplicate cross-check validation
-            const isDuplicate = attendanceLog.some(record => 
-                record.indexNo === indexNo && 
-                record.schedule === scheduleInfo &&
-                record.course === course
-            );
-
-            if (isDuplicate) {
-                statusAlert.textContent = `Submission Rejected! ID "${indexNo}" has already signed in for ${scheduleInfo} in ${course}.`;
-                statusAlert.style.display = "block";
-                return;
-            }
-            
-            statusAlert.style.display = "none";
-            const now = new Date();
-            const timestamp = now.toLocaleDateString() + ' ' + now.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
-
-            const newRecord = {
-                timestamp: timestamp,
-                schedule: scheduleInfo,
-                calendarDate: calendarDateInfo,
-                name: name,
-                indexNo: indexNo,
-                course: course,
-                status: "Present"
-            };
-
-            attendanceLog.push(newRecord);
-            localStorage.setItem('net_class_attendance', JSON.stringify(attendanceLog));
-
-            // Set Device Lock metadata to freeze the UI
-            localStorage.setItem('device_attendance_lock', JSON.stringify({
-                name: name,
-                indexNo: indexNo,
-                course: course,
-                schedule: selectedOption.value
-            }));
-
-            // Reset operational data and update view
-            attendanceForm.reset();
-            checkDeviceLockoutStatus();
-
-            if (isAdminAuthenticated) {
-                loadAttendanceRecords();
-            }
-        });
-
-        // Manual Admin Bypass/Unlock Action
-        unlockFormBtn.addEventListener('click', function() {
-            const enteredPin = prompt("Enter Course Rep Secret Admin PIN to unlock form:");
-            if (enteredPin === ADMIN_PIN) {
-                localStorage.removeItem('device_attendance_lock');
-                checkDeviceLockoutStatus();
-            } else if (enteredPin !== null) {
-                alert("Incorrect PIN. Access Denied.");
-            }
-        });
-
-        // Automatically unlock device if current selections change
-        // Track input fields for Course/Date adjustments to auto-release if the class transitions
-        document.getElementById('courseSelect').addEventListener('change', autoReleaseLockOnSessionChange);
-        dateSelect.addEventListener('change', autoReleaseLockOnSessionChange);
-
-        function autoReleaseLockOnSessionChange() {
-            const currentLock = JSON.parse(localStorage.getItem('device_attendance_lock'));
-            if (currentLock) {
-                const currentCourseSelection = document.getElementById('courseSelect').value;
-                const currentDaySelection = dateSelect.value;
+                uiSemesterStartDate.value = currentSavedRoot;
+                uiDateSelect.innerHTML = '<option value="" disabled selected>-- Choose Session/Date --</option>';
                 
-                // If a completely different lesson window or day option is chosen, clear the local block
-                if (currentCourseSelection !== currentLock.course || currentDaySelection !== currentLock.schedule) {
-                    localStorage.removeItem('device_attendance_lock');
-                    checkDeviceLockoutStatus();
+                let calendarDateAnchor = new Date(currentSavedRoot);
+                let weekdayIndexOffset = calendarDateAnchor.getDay(); 
+
+                for (let activeWeek = 1; activeWeek <= 19; activeWeek++) {
+                    for (let activeDay = 0; activeDay < 5; activeDay++) {
+                        let trackingDate = new Date(calendarDateAnchor);
+                        let standardDayCount = activeDay + 1; 
+                        let relativeDayDelta = standardDayCount - weekdayIndexOffset;
+                        let aggregatedDays = ((activeWeek - 1) * 7) + relativeDayDelta;
+                        
+                        trackingDate.setDate(calendarDateAnchor.getDate() + aggregatedDays);
+                        
+                        const textDateFormatted = trackingDate.toLocaleDateString('en-US', {
+                            weekday: 'short', year: 'numeric', month: 'short', day: 'numeric'
+                        });
+
+                        const aggregateStringValue = `Week ${activeWeek} - ${matrixWeekdays[activeDay]} (${textDateFormatted})`;
+                        const optionElementNode = document.createElement('option');
+                        
+                        optionElementNode.value = aggregateStringValue;
+                        optionElementNode.dataset.schedule = `Week ${activeWeek}, ${matrixWeekdays[activeDay]}`;
+                        optionElementNode.dataset.caldate = textDateFormatted;
+                        optionElementNode.textContent = aggregateStringValue;
+                        
+                        uiDateSelect.appendChild(optionElementNode);
+                    }
                 }
             }
-        }
 
-        // Step 4: Admin Panel Display System
-        toggleAdminBtn.addEventListener('click', function() {
-            if (!isAdminAuthenticated) {
-                const enteredPin = prompt("Enter Course Rep Secret Admin PIN:");
-                if (enteredPin === ADMIN_PIN) {
-                    isAdminAuthenticated = true;
-                    adminPanel.style.display = "block";
-                    toggleAdminBtn.textContent = "Hide Admin Dashboard";
-                    toggleAdminBtn.style.backgroundColor = "#475569";
-                    loadAttendanceRecords();
-                } else if (enteredPin !== null) {
-                    alert("Access Denied: Incorrect credentials.");
+            // Lockout Management System
+            function manageInterfaceLockState() {
+                const operationalLockData = JSON.parse(localStorage.getItem('device_attendance_lock'));
+                
+                if (operationalLockData) {
+                    outName.textContent = operationalLockData.name;
+                    outIndex.textContent = operationalLockData.indexNo;
+                    outCourse.textContent = operationalLockData.course;
+                    outSchedule.textContent = operationalLockData.schedule;
+                    
+                    uiFormContainer.style.display = "none";
+                    uiLockoutContainer.style.display = "block";
+                } else {
+                    uiFormContainer.style.display = "block";
+                    uiLockoutContainer.style.display = "none";
                 }
-            } else {
-                isAdminAuthenticated = false;
-                adminPanel.style.display = "none";
-                toggleAdminBtn.textContent = "Access Admin Panel (Course Rep Only)";
-                toggleAdminBtn.style.backgroundColor = "#64748b";
-            }
-        });
-
-        function loadAttendanceRecords() {
-            attendanceRecords.innerHTML = "";
-            let attendanceLog = JSON.parse(localStorage.getItem('net_class_attendance')) || [];
-
-            if (attendanceLog.length === 0) {
-                attendanceRecords.innerHTML = `<tr><td colspan="7" style="text-align:center; color:#94a3b8;">No data logged in system yet.</td></tr>`;
-                return;
             }
 
-            attendanceLog.slice().reverse().forEach(record => {
-                const row = document.createElement('tr');
-                row.innerHTML = `
-                    <td><small style="color:#64748b">${record.timestamp}</small></td>
-                    <td><strong>${record.schedule}</strong></td>
-                    <td>${record.calendarDate}</td>
-                    <td><strong>${record.name}</strong></td>
-                    <td>${record.indexNo}</td>
-                    <td>${record.course}</td>
-                    <td><span class="status-badge">${record.status}</span></td>
-                `;
-                attendanceRecords.appendChild(row);
+            // Submission Capture Interceptor
+            targetForm.addEventListener('submit', function (event) {
+                event.preventDefault();
+
+                const paramName = document.getElementById('studentName').value.trim();
+                const paramIndex = document.getElementById('studentIndex').value.trim().toUpperCase();
+                const paramCourse = document.getElementById('courseSelect').value;
+                
+                const activeSelectionNode = uiDateSelect.options[uiDateSelect.selectedIndex];
+                const dataScheduleAttr = activeSelectionNode.dataset.schedule; 
+                const dataCalendarAttr = activeSelectionNode.dataset.caldate;
+                
+                let memoryLogCollection = JSON.parse(localStorage.getItem('net_class_attendance')) || [];
+
+                const validationCheckConflict = memoryLogCollection.some(recordItem => 
+                    recordItem.indexNo === paramIndex && 
+                    recordItem.schedule === dataScheduleAttr &&
+                    recordItem.course === paramCourse
+                );
+
+                if (validationCheckConflict) {
+                    uiStatusAlert.textContent = `Submission Rejected! ID "${paramIndex}" has already signed in for ${dataScheduleAttr} in ${paramCourse}.`;
+                    uiStatusAlert.style.display = "block";
+                    return;
+                }
+                
+                uiStatusAlert.style.display = "none";
+                const activeClock = new Date();
+                const timestampString = activeClock.toLocaleDateString() + ' ' + activeClock.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
+
+                const transactionalRecord = {
+                    timestamp: timestampString,
+                    schedule: dataScheduleAttr,
+                    calendarDate: dataCalendarAttr,
+                    name: paramName,
+                    indexNo: paramIndex,
+                    course: paramCourse,
+                    status: "Present"
+                };
+
+                memoryLogCollection.push(transactionalRecord);
+                localStorage.setItem('net_class_attendance', JSON.stringify(memoryLogCollection));
+
+                localStorage.setItem('device_attendance_lock', JSON.stringify({
+                    name: paramName,
+                    indexNo: paramIndex,
+                    course: paramCourse,
+                    schedule: activeSelectionNode.value
+                }));
+
+                targetForm.reset();
+                manageInterfaceLockState();
+
+                if (isUserAuthenticated) {
+                    populateAdminDashboardData();
+                }
             });
-        }
 
-        clearDataBtn.addEventListener('click', function() {
-            if (confirm("Reset operational history? Data cannot be restored.")) {
-                localStorage.removeItem('net_class_attendance');
-                localStorage.removeItem('device_attendance_lock');
-                loadAttendanceRecords();
-                checkDeviceLockoutStatus();
-                alert("System logs cleared.");
+            // Verification Security Handlers
+            uiUnlockFormBtn.addEventListener('click', function () {
+                const userChallengeAttempt = prompt("Enter Course Rep Secret Admin PIN to unlock form:");
+                if (userChallengeAttempt !== null) {
+                    if (authenticatePin(userChallengeAttempt)) {
+                        localStorage.removeItem('device_attendance_lock');
+                        manageInterfaceLockState();
+                    } else {
+                        alert("Incorrect PIN. Access Denied.");
+                    }
+                }
+            });
+
+            function verifySessionChangeRelease() {
+                const globalLockoutReference = JSON.parse(localStorage.getItem('device_attendance_lock'));
+                if (globalLockoutReference) {
+                    const dynamicCourseValue = document.getElementById('courseSelect').value;
+                    const dynamicDayValue = uiDateSelect.value;
+                    
+                    if (dynamicCourseValue !== globalLockoutReference.course || dynamicDayValue !== globalLockoutReference.schedule) {
+                        localStorage.removeItem('device_attendance_lock');
+                        manageInterfaceLockState();
+                    }
+                }
             }
-        });
 
-        // Run startup procedures
-        generateSemesterDates();
-        checkDeviceLockoutStatus();
+            document.getElementById('courseSelect').addEventListener('change', verifySessionChangeRelease);
+            uiDateSelect.addEventListener('change', verifySessionChangeRelease);
+
+            uiToggleAdminBtn.addEventListener('click', function () {
+                if (!isUserAuthenticated) {
+                    const dashboardAccessRequest = prompt("Enter Course Rep Secret Admin PIN:");
+                    if (dashboardAccessRequest !== null) {
+                        if (authenticatePin(dashboardAccessRequest)) {
+                            isUserAuthenticated = true;
+                            uiAdminPanel.style.display = "block";
+                            uiToggleAdminBtn.textContent = "Hide Admin Dashboard";
+                            uiToggleAdminBtn.style.backgroundColor = "#475569";
+                            populateAdminDashboardData();
+                        } else {
+                            alert("Access Denied: Incorrect credentials.");
+                        }
+                    }
+                } else {
+                    isUserAuthenticated = false;
+                    uiAdminPanel.style.display = "none";
+                    uiToggleAdminBtn.textContent = "Access Admin Panel (Course Rep Only)";
+                    uiToggleAdminBtn.style.backgroundColor = "#64748b";
+                }
+            });
+
+            function populateAdminDashboardData() {
+                uiAttendanceRecords.innerHTML = "";
+                let localDatasetHistory = JSON.parse(localStorage.getItem('net_class_attendance')) || [];
+
+                if (localDatasetHistory.length === 0) {
+                    uiAttendanceRecords.innerHTML = `<tr><td colspan="7" style="text-align:center; color:#94a3b8;">No data logged in system yet.</td></tr>`;
+                    return;
+                }
+
+                localDatasetHistory.slice().reverse().forEach(dataUnit => {
+                    const standardRowNode = document.createElement('tr');
+                    standardRowNode.innerHTML = `
+                        <td><small style="color:#64748b">${dataUnit.timestamp}</small></td>
+                        <td><strong>${dataUnit.schedule}</strong></td>
+                        <td>${dataUnit.calendarDate}</td>
+                        <td><strong>${dataUnit.name}</strong></td>
+                        <td>${dataUnit.indexNo}</td>
+                        <td>${dataUnit.course}</td>
+                        <td><span class="status-badge">${dataUnit.status}</span></td>
+                    `;
+                    uiAttendanceRecords.appendChild(standardRowNode);
+                });
+            }
+
+            uiClearDataBtn.addEventListener('click', function () {
+                if (confirm("Reset operational history? Data cannot be restored.")) {
+                    localStorage.removeItem('net_class_attendance');
+                    localStorage.removeItem('device_attendance_lock');
+                    populateAdminDashboardData();
+                    manageInterfaceLockState();
+                    alert("System logs cleared.");
+                }
+            });
+
+            uiUpdateCalendarBtn.addEventListener('click', function() {
+                if(uiSemesterStartDate.value) {
+                    localStorage.setItem('semester_start_date', uiSemesterStartDate.value);
+                    buildCalendarMatrix();
+                    alert("Academic Calendar successfully updated.");
+                }
+            });
+
+            // Initialize App Components
+            buildCalendarMatrix();
+            manageInterfaceLockState();
+
+        })();
     </script>
 </body>
 </html>
